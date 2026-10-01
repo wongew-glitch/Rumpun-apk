@@ -1,0 +1,313 @@
+name: Bangun APK Rumpun
+
+on:
+  push:
+  workflow_dispatch:
+
+env:
+  # ===== GANTI BARIS DI BAWAH INI dengan alamat Netlify-mu, tanpa / di akhir =====
+  SITUS: "https://glistening-moonbeam-0ef90e.netlify.app/"
+
+jobs:
+  apk:
+    name: Bangun APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Tulis proyek Android
+        run: |
+          mkdir -p app/src/main/java/id/rumpun/simulasi app/src/main/res/values app/src/main/assets/icons
+          cat > settings.gradle <<'BERKAS'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+              plugins { id 'com.android.application' version '8.5.2' }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "Rumpun"
+          include ':app'
+          BERKAS
+          cat > gradle.properties <<'BERKAS'
+          org.gradle.jvmargs=-Xmx2560m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          BERKAS
+          cat > app/build.gradle <<'BERKAS'
+          plugins { id 'com.android.application' }
+          android {
+              namespace 'id.rumpun.simulasi'
+              compileSdk 34
+              defaultConfig {
+                  applicationId "id.rumpun.simulasi"
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+              signingConfigs {
+                  rilis {
+                      storeFile file("../rumpun.keystore")
+                      storePassword "rumpun123"
+                      keyAlias "rumpun"
+                      keyPassword "rumpun123"
+                  }
+              }
+              buildTypes {
+                  release { minifyEnabled false; signingConfig signingConfigs.rilis }
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          BERKAS
+          cat > app/src/main/AndroidManifest.xml <<'BERKAS'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application android:allowBackup="true" android:hardwareAccelerated="true"
+                  android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher"
+                  android:label="@string/app_name" android:theme="@style/AppTheme">
+                  <activity android:name=".MainActivity" android:exported="true"
+                      android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize"
+                      android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          BERKAS
+          cat > app/src/main/res/values/nilai.xml <<'BERKAS'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">Rumpun</string>
+              <color name="brand">#1B5B39</color>
+              <color name="bg">#F3F6F2</color>
+              <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+                  <item name="android:statusBarColor">@color/brand</item>
+                  <item name="android:navigationBarColor">@color/bg</item>
+                  <item name="android:windowBackground">@color/bg</item>
+              </style>
+          </resources>
+          BERKAS
+          cat > app/src/main/java/id/rumpun/simulasi/MainActivity.java <<'BERKAS'
+          package id.rumpun.simulasi;
+          
+          import android.app.Activity;
+          import android.content.Intent;
+          import android.content.res.Configuration;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.view.KeyEvent;
+          import android.view.ViewGroup;
+          import android.webkit.WebResourceRequest;
+          import android.webkit.WebResourceResponse;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          
+          import java.io.IOException;
+          import java.io.InputStream;
+          import java.util.HashMap;
+          import java.util.Map;
+          
+          /** Rumpun - simulasi marketplace, tugas Simulasi Digital Marketing UNPAM.
+           *  Seluruh berkas aplikasi ikut dikemas di dalam APK (folder assets) dan
+           *  disajikan lewat alamat maya https://rumpun.local/ supaya penyimpanan
+           *  peramban berfungsi. Akibatnya aplikasi tetap jalan tanpa sinyal. */
+          public class MainActivity extends Activity {
+          
+              private static final String HOST = "rumpun.local";
+              private WebView web;
+          
+              @Override
+              protected void onCreate(Bundle s) {
+                  super.onCreate(s);
+                  web = new WebView(this);
+                  setContentView(web, new ViewGroup.LayoutParams(-1, -1));
+          
+                  WebSettings set = web.getSettings();
+                  set.setJavaScriptEnabled(true);
+                  set.setDomStorageEnabled(true);
+                  set.setUseWideViewPort(true);
+                  set.setLoadWithOverviewMode(true);
+                  set.setSupportZoom(false);
+                  set.setBuiltInZoomControls(false);
+          
+                  web.setWebViewClient(new WebViewClient() {
+                      @Override
+                      public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest r) {
+                          return sajikan(r.getUrl());
+                      }
+                      @Override
+                      public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
+                          Uri u = r.getUrl();
+                          if (u == null || HOST.equals(u.getHost())) return false;
+                          try {
+                              Intent i = new Intent(Intent.ACTION_VIEW, u);
+                              i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                              startActivity(i);
+                          } catch (Exception abaikan) { }
+                          return true;
+                      }
+                      @Override
+                      public void onPageFinished(WebView v, String url) { tema(); }
+                  });
+          
+                  if (s != null) web.restoreState(s);
+                  else web.loadUrl("https://" + HOST + "/index.html");
+              }
+          
+              private WebResourceResponse sajikan(Uri a) {
+                  if (a == null || !HOST.equals(a.getHost())) return null;
+                  String p = a.getPath();
+                  if (p == null || p.isEmpty() || "/".equals(p)) p = "/index.html";
+                  String berkas = p.startsWith("/") ? p.substring(1) : p;
+                  try {
+                      InputStream in = getAssets().open(berkas);
+                      WebResourceResponse res = new WebResourceResponse(jenis(berkas), "utf-8", in);
+                      Map<String, String> h = new HashMap<String, String>();
+                      h.put("Access-Control-Allow-Origin", "*");
+                      res.setResponseHeaders(h);
+                      return res;
+                  } catch (IOException tidakAda) {
+                      return null;
+                  }
+              }
+          
+              private String jenis(String b) {
+                  if (b.endsWith(".html")) return "text/html";
+                  if (b.endsWith(".js")) return "application/javascript";
+                  if (b.endsWith(".css")) return "text/css";
+                  if (b.endsWith(".png")) return "image/png";
+                  if (b.endsWith(".svg")) return "image/svg+xml";
+                  if (b.endsWith(".webmanifest") || b.endsWith(".json")) return "application/json";
+                  return "application/octet-stream";
+              }
+          
+              /** Teruskan mode gelap perangkat ke halaman, yang sudah punya dua tema. */
+              private void tema() {
+                  if (web == null) return;
+                  int m = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+                  String t = (m == Configuration.UI_MODE_NIGHT_YES) ? "dark" : "light";
+                  try {
+                      web.evaluateJavascript("document.documentElement.setAttribute('data-theme','" + t + "');", null);
+                  } catch (Throwable abaikan) { }
+              }
+          
+              @Override
+              public void onConfigurationChanged(Configuration c) { super.onConfigurationChanged(c); tema(); }
+          
+              @Override
+              public boolean onKeyDown(int k, KeyEvent e) {
+                  if (k == KeyEvent.KEYCODE_BACK && web != null && web.canGoBack()) { web.goBack(); return true; }
+                  return super.onKeyDown(k, e);
+              }
+          
+              @Override
+              protected void onSaveInstanceState(Bundle o) { super.onSaveInstanceState(o); if (web != null) web.saveState(o); }
+          }
+          BERKAS
+          cat > ikon.svg <<'BERKAS'
+          <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+            <defs><linearGradient id="g" x1="0" y1="0" x2="0.4" y2="1">
+              <stop offset="0" stop-color="#2C7D52"/><stop offset="1" stop-color="#174D30"/></linearGradient></defs>
+            <rect width="512" height="512" fill="url(#g)"/>
+            <g transform="translate(87,87) scale(2.81667)" stroke="#FFFFFF" stroke-width="5.5" fill="none"
+               stroke-linejoin="round" stroke-linecap="round">
+              <path d="M41 27c0-9 8-14 19-14s19 5 19 14"/>
+              <path d="M31 42h58l-7 53a7 7 0 0 1-7 6H45a7 7 0 0 1-7-6z" fill="#FFFFFF" fill-opacity="0.16"/>
+              <rect x="25" y="28" width="70" height="15" rx="7" fill="#C9E34E" stroke="#C9E34E"/>
+              <rect x="51" y="72" width="18" height="12" rx="4" fill="#C9E34E" stroke="#C9E34E"/>
+              <path d="M60 84v9"/>
+            </g>
+          </svg>
+          BERKAS
+          echo "--- proyek tertulis ---"
+          find . -type f | sort
+
+      - name: Ambil isi aplikasi dari situsmu
+        run: |
+          if echo "$SITUS" | grep -q "GANTI-DENGAN"; then
+            echo "::error::Alamat Netlify belum diisi. Buka berkas ini, ubah baris SITUS di bagian atas, lalu simpan."
+            exit 1
+          fi
+          B="${SITUS%/}"
+          OK=""
+          for C in "$B" "$B/pwa"; do
+            echo "Mencoba $C/index.html"
+            if curl -fsSL --max-time 90 "$C/index.html" -o app/src/main/assets/index.html; then
+              OK="$C"; echo "Berhasil dari $C"; break
+            fi
+          done
+          if [ -z "$OK" ]; then
+            echo "::error::Tidak bisa mengambil index.html dari $B. Pastikan situs Netlify-mu sudah Public (bukan Private) dan alamatnya benar."
+            exit 1
+          fi
+          BYTE=$(wc -c < app/src/main/assets/index.html)
+          echo "index.html = $BYTE byte"
+          if [ "$BYTE" -lt 20000 ]; then
+            echo "::error::Berkas yang terambil hanya $BYTE byte. Itu terlalu kecil - kemungkinan halaman galat, bukan aplikasinya."
+            exit 1
+          fi
+          curl -fsSL --max-time 60 "$OK/manifest.webmanifest" -o app/src/main/assets/manifest.webmanifest || echo "manifest tidak ada, dilewati"
+          curl -fsSL --max-time 60 "$OK/sw.js" -o app/src/main/assets/sw.js || echo "sw.js tidak ada, dilewati"
+
+      - name: Buat ikon aplikasi
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq librsvg2-bin
+          for D in "mdpi 48" "hdpi 72" "xhdpi 96" "xxhdpi 144" "xxxhdpi 192"; do
+            set -- $D
+            mkdir -p "app/src/main/res/mipmap-$1"
+            rsvg-convert -w "$2" -h "$2" ikon.svg -o "app/src/main/res/mipmap-$1/ic_launcher.png"
+          done
+          rsvg-convert -w 192 -h 192 ikon.svg -o app/src/main/assets/icons/icon-192.png
+          rsvg-convert -w 512 -h 512 ikon.svg -o app/src/main/assets/icons/icon-512.png
+          ls -la app/src/main/res/mipmap-xxxhdpi
+
+      - name: Siapkan Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Siapkan Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Siapkan Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Buat kunci penandatangan
+        run: |
+          keytool -genkeypair -v -keystore rumpun.keystore -storetype PKCS12 \
+            -alias rumpun -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass rumpun123 -keypass rumpun123 \
+            -dname "CN=Rumpun, O=Tugas Kuliah, L=Tangerang Selatan, ST=Banten, C=ID"
+
+      - name: Bangun APK
+        run: gradle assembleDebug assembleRelease --no-daemon --stacktrace
+
+      - name: Kumpulkan hasil
+        if: always()
+        run: |
+          mkdir -p keluaran
+          cp app/build/outputs/apk/release/app-release.apk keluaran/Rumpun.apk || true
+          cp app/build/outputs/apk/debug/app-debug.apk keluaran/Rumpun-uji-coba.apk || true
+          cp rumpun.keystore keluaran/ || true
+          ls -la keluaran
+
+      - name: Unggah APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rumpun-APK
+          path: keluaran/
+          if-no-files-found: warn
+          retention-days: 30
