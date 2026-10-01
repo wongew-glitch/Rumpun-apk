@@ -6,7 +6,7 @@ on:
 
 env:
   # ===== GANTI BARIS DI BAWAH INI dengan alamat Netlify-mu, tanpa / di akhir =====
-  SITUS: "https://GANTI-ALAMAT-NETLIFY-MU.netlify.app"
+  SITUS: "https://glistening-moonbeam-0ef90e.netlify.app/"
 
 jobs:
   apk:
