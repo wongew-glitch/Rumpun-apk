@@ -5,8 +5,8 @@ on:
   workflow_dispatch:
 
 env:
-  # ===== GANTI BARIS DI BAWAH INI dengan alamat Netlify-mu, tanpa / di akhir =====
-  SITUS: "https://glistening-moonbeam-0ef90e.netlify.app/"
+  # Alamat situs Netlify-mu. Sudah terisi, tidak perlu diubah.
+  SITUS: "https://glistening-moonbeam-0ef90e.netlify.app"
 
 jobs:
   apk:
@@ -271,13 +271,29 @@ jobs:
           ls -la app/src/main/res/mipmap-xxxhdpi
 
       - name: Siapkan Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Siapkan Android SDK
-        uses: android-actions/setup-android@v3
+        run: |
+          # Mesin GitHub sudah membawa Android SDK. Aksi android-actions/setup-android
+          # mencoba memasang paket lawas bernama "tools" yang sudah dihapus Google,
+          # dan itulah yang menggagalkan percobaan sebelumnya. Jadi kita pakai saja
+          # SDK yang memang sudah ada di mesin.
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          SDKM=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager 2>/dev/null | head -1)
+          echo "sdkmanager: ${SDKM:-tidak ditemukan}"
+          if [ -n "$SDKM" ]; then
+            yes | "$SDKM" --licenses > /dev/null 2>&1 || true
+            "$SDKM" "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
+          fi
+          echo "--- platform yang tersedia ---"
+          ls "$ANDROID_HOME/platforms" 2>/dev/null || echo "(kosong; Gradle akan mengunduhnya sendiri)"
 
       - name: Siapkan Gradle
         uses: gradle/actions/setup-gradle@v4
